@@ -1,0 +1,502 @@
+package view;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ItemEvent;
+import java.sql.*;
+
+import database.DBConnection;
+
+public class StockForm extends JFrame {
+
+    JComboBox<String> productBox;
+    JTextField quantityField;
+    JTextField priceField;
+    JButton addButton;
+    JButton removeButton;
+    JButton updatePriceButton;
+
+    private Dashboard previousDashboard;
+
+    private final Color DARK_BLUE = new Color(31, 52, 80);
+    private final Color BACKGROUND = new Color(240, 245, 250);
+    private final Color GREEN = new Color(35, 150, 105);
+    private final Color RED = new Color(190, 65, 65);
+    private final Color BLUE = new Color(40, 120, 220);
+    private final Color HEADER_BLUE = new Color(32, 57, 92);
+
+    public StockForm() {
+        this(null);
+    }
+
+    public StockForm(Dashboard previousDashboard) {
+
+        this.previousDashboard = previousDashboard;
+
+        setTitle("Stock Management");
+        setSize(600, 560);
+        setLocationRelativeTo(null);
+        setResizable(false);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(null);
+        panel.setBackground(BACKGROUND);
+        add(panel);
+
+        JPanel headerPanel = new JPanel();
+        headerPanel.setLayout(null);
+        headerPanel.setBackground(HEADER_BLUE);
+        headerPanel.setBounds(0, 0, 600, 75);
+        panel.add(headerPanel);
+
+        JButton backButton = new RoundedButton("Back");
+        backButton.setBounds(15, 22, 75, 30);
+        styleBackButton(backButton);
+        headerPanel.add(backButton);
+
+        backButton.addActionListener(e -> {
+            dispose();
+            if (previousDashboard != null) {
+                previousDashboard.setVisible(true);
+            } else {
+                new Dashboard();
+            }
+        });
+
+        JLabel headerTitle = new JLabel("INVENTORY MANAGEMENT SYSTEM");
+        headerTitle.setBounds(75, 10, 450, 35);
+        headerTitle.setFont(new Font("Arial", Font.BOLD, 18));
+        headerTitle.setForeground(Color.WHITE);
+        headerTitle.setHorizontalAlignment(SwingConstants.CENTER);
+        headerPanel.add(headerTitle);
+
+        JLabel welcome = new JLabel("Welcome Admin");
+        welcome.setBounds(75, 43, 450, 25);
+        welcome.setFont(new Font("Arial", Font.PLAIN, 13));
+        welcome.setForeground(new Color(225, 230, 240));
+        welcome.setHorizontalAlignment(SwingConstants.CENTER);
+        headerPanel.add(welcome);
+
+        JLabel title = new JLabel("Stock Management");
+        title.setBounds(100, 90, 400, 40);
+        title.setFont(new Font("Arial", Font.BOLD, 28));
+        title.setForeground(DARK_BLUE);
+        title.setHorizontalAlignment(SwingConstants.CENTER);
+        panel.add(title);
+
+        JLabel productLabel = new JLabel("Select Product:");
+        productLabel.setBounds(70, 150, 150, 30);
+        productLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        panel.add(productLabel);
+
+        productBox = new JComboBox<>();
+        productBox.setBounds(230, 150, 220, 35);
+        panel.add(productBox);
+
+        productBox.addItemListener(e -> {
+            if (e.getStateChange() == ItemEvent.SELECTED) {
+                loadSelectedProductPrice();
+            }
+        });
+
+        loadProducts();
+
+        JLabel quantityLabel = new JLabel("Quantity:");
+        quantityLabel.setBounds(70, 200, 150, 30);
+        quantityLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        panel.add(quantityLabel);
+
+        quantityField = new JTextField();
+        quantityField.setBounds(230, 200, 220, 35);
+        panel.add(quantityField);
+
+        JLabel priceLabel = new JLabel("Price (R):");
+        priceLabel.setBounds(70, 250, 150, 30);
+        priceLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        panel.add(priceLabel);
+
+        priceField = new JTextField();
+        priceField.setBounds(230, 250, 220, 35);
+        panel.add(priceField);
+
+        addButton = new JButton("ADD STOCK");
+        addButton.setBounds(30, 320, 160, 45);
+        styleAddButton(addButton);
+        panel.add(addButton);
+
+        removeButton = new JButton("REMOVE STOCK");
+        removeButton.setBounds(210, 320, 160, 45);
+        styleRemoveButton(removeButton);
+        panel.add(removeButton);
+
+        updatePriceButton = new JButton("UPDATE PRICE");
+        updatePriceButton.setBounds(390, 320, 160, 45);
+        styleUpdatePriceButton(updatePriceButton);
+        panel.add(updatePriceButton);
+
+        addButton.addActionListener(e -> updateStock(true));
+        removeButton.addActionListener(e -> updateStock(false));
+        updatePriceButton.addActionListener(e -> updatePrice());
+
+        setVisible(true);
+    }
+
+    private void loadProducts() {
+
+        String sql = "SELECT ProductName FROM Products ORDER BY ProductName";
+
+        try {
+            Connection con = DBConnection.getConnection();
+            PreparedStatement pst = con.prepareStatement(sql);
+            ResultSet rs = pst.executeQuery();
+
+            productBox.removeAllItems();
+
+            while (rs.next()) {
+                productBox.addItem(rs.getString("ProductName"));
+            }
+
+            rs.close();
+            pst.close();
+            con.close();
+
+            loadSelectedProductPrice();
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Unable to load products.\n\n" + e.getMessage(),
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    private void loadSelectedProductPrice() {
+
+        if (productBox.getSelectedItem() == null) {
+            priceField.setText("");
+            return;
+        }
+
+        String product = productBox.getSelectedItem().toString();
+
+        String sql = "SELECT Price FROM Products WHERE ProductName = ?";
+
+        try {
+            Connection con = DBConnection.getConnection();
+            PreparedStatement pst = con.prepareStatement(sql);
+            pst.setString(1, product);
+
+            ResultSet rs = pst.executeQuery();
+
+            if (rs.next()) {
+                double price = rs.getDouble("Price");
+                priceField.setText(String.format("%.2f", price));
+            }
+
+            rs.close();
+            pst.close();
+            con.close();
+
+        } catch (Exception e) {
+            System.out.println("Error loading price: " + e.getMessage());
+        }
+    }
+
+    private void updateStock(boolean add) {
+
+        try {
+            if (productBox.getSelectedItem() == null) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Please select a product.",
+                        "Input Error",
+                        JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+
+            String product = productBox.getSelectedItem().toString();
+            String quantityText = quantityField.getText().trim();
+
+            if (quantityText.isEmpty()) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Please enter a quantity.",
+                        "Input Error",
+                        JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+
+            int quantity = Integer.parseInt(quantityText);
+
+            if (quantity <= 0) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Quantity must be greater than 0.",
+                        "Input Error",
+                        JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+
+            Connection con = DBConnection.getConnection();
+
+            if (add) {
+                String sql = "UPDATE Products SET Quantity = Quantity + ? WHERE ProductName = ?";
+
+                PreparedStatement pst = con.prepareStatement(sql);
+                pst.setInt(1, quantity);
+                pst.setString(2, product);
+                pst.executeUpdate();
+                pst.close();
+
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Stock Added Successfully!",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE
+                );
+
+            } else {
+                String checkSql = "SELECT Quantity FROM Products WHERE ProductName = ?";
+
+                PreparedStatement checkPst = con.prepareStatement(checkSql);
+                checkPst.setString(1, product);
+
+                ResultSet rs = checkPst.executeQuery();
+
+                if (rs.next()) {
+                    int currentQuantity = rs.getInt("Quantity");
+
+                    if (quantity > currentQuantity) {
+                        rs.close();
+                        checkPst.close();
+                        con.close();
+
+                        JOptionPane.showMessageDialog(
+                                this,
+                                "Cannot remove " + quantity + " items.\n\nAvailable stock: " + currentQuantity,
+                                "Insufficient Stock",
+                                JOptionPane.WARNING_MESSAGE
+                        );
+                        return;
+                    }
+                }
+
+                rs.close();
+                checkPst.close();
+
+                String sql = "UPDATE Products SET Quantity = Quantity - ? WHERE ProductName = ?";
+
+                PreparedStatement pst = con.prepareStatement(sql);
+                pst.setInt(1, quantity);
+                pst.setString(2, product);
+                pst.executeUpdate();
+                pst.close();
+
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Stock Removed Successfully!",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE
+                );
+            }
+
+            con.close();
+            quantityField.setText("");
+
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Please enter a valid number.",
+                    "Input Error",
+                    JOptionPane.WARNING_MESSAGE
+            );
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Error: " + e.getMessage(),
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    private void updatePrice() {
+
+        try {
+            if (productBox.getSelectedItem() == null) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Please select a product.",
+                        "Input Error",
+                        JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+
+            String product = productBox.getSelectedItem().toString();
+            String priceText = priceField.getText().trim();
+
+            if (priceText.isEmpty()) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Please enter a new price.",
+                        "Input Error",
+                        JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+
+            double newPrice;
+
+            try {
+                newPrice = Double.parseDouble(priceText);
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Please enter a valid price.",
+                        "Input Error",
+                        JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+
+            if (newPrice < 0) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Price cannot be negative.",
+                        "Invalid Price",
+                        JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+
+            Connection con = DBConnection.getConnection();
+
+            String sql = "UPDATE Products SET Price = ? WHERE ProductName = ?";
+
+            PreparedStatement pst = con.prepareStatement(sql);
+            pst.setDouble(1, newPrice);
+            pst.setString(2, product);
+
+            int rows = pst.executeUpdate();
+
+            pst.close();
+            con.close();
+
+            if (rows > 0) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Price Updated Successfully!\n\n"
+                                + "Product: " + product + "\n"
+                                + "New Price: R" + String.format("%.2f", newPrice),
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE
+                );
+
+                loadSelectedProductPrice();
+            }
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Error updating price.\n\n" + e.getMessage(),
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    private void styleBackButton(JButton button) {
+
+        button.setFont(new Font("Arial", Font.BOLD, 12));
+        button.setBackground(new Color(70, 95, 120));
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+        button.setContentAreaFilled(false);
+        button.setOpaque(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    }
+
+    private void styleAddButton(JButton button) {
+
+        button.setFont(new Font("Arial", Font.BOLD, 13));
+        button.setBackground(GREEN);
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    }
+
+    private void styleRemoveButton(JButton button) {
+
+        button.setFont(new Font("Arial", Font.BOLD, 13));
+        button.setBackground(RED);
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    }
+
+    private void styleUpdatePriceButton(JButton button) {
+
+        button.setFont(new Font("Arial", Font.BOLD, 13));
+        button.setBackground(BLUE);
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    }
+
+    private static class RoundedButton extends JButton {
+
+        public RoundedButton(String text) {
+
+            super(text);
+            setOpaque(false);
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setCursor(new Cursor(Cursor.HAND_CURSOR));
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            g2.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON
+            );
+
+            g2.setColor(getBackground());
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+
+            g2.setFont(getFont());
+            g2.setColor(getForeground());
+
+            FontMetrics fm = g2.getFontMetrics();
+
+            int x = (getWidth() - fm.stringWidth(getText())) / 2;
+            int y = (getHeight() - fm.getHeight()) / 2 + fm.getAscent();
+
+            g2.drawString(getText(), x, y);
+            g2.dispose();
+        }
+
+        @Override
+        protected void paintBorder(Graphics g) {
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new LoginForm());
+    }
+}

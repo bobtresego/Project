@@ -1,0 +1,81 @@
+package database;
+
+public class Session {
+
+    private static int userId;
+    private static String email;
+    private static String role;
+    private static String firstName;
+    private static String lastName;
+
+    public static void setCurrentUser(
+            int id,
+            String mail,
+            String r,
+            String first,
+            String last
+    ) {
+        userId = id;
+        email = mail;
+        role = r;
+        firstName = first;
+        lastName = last;
+    }
+
+    public static int getUserId() {
+        return userId;
+    }
+
+    public static String getEmail() {
+        return email;
+    }
+
+    public static String getRole() {
+        return role;
+    }
+
+    public static String getFirstName() {
+        return firstName;
+    }
+
+    public static String getLastName() {
+        return lastName;
+    }
+
+    public static String getFullName() {
+
+        String full = (firstName + " " + lastName).trim();
+
+        if (full.isEmpty()) {
+            return "User";
+        }
+
+        return full;
+    }
+
+    public static boolean isAdmin() {
+
+        if (role == null) {
+            return false;
+        }
+
+        return role.trim().equalsIgnoreCase("Admin");
+    }
+
+    public static boolean isStaff() {
+
+        if (role == null) {
+            return false;
+        }
+
+        return role.trim().equalsIgnoreCase("Staff");
+    }
+
+    public static void clear() {
+        userId = 0;
+        email = null;
+        role = null;
+        firstName = null;
+        lastName = null;
+    }
+}
